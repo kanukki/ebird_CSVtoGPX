@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>eBird Hotspots → GPX</title>
+<style>
+  :root {
+    --ink: #1c2b24;
+    --paper: #f4f1ea;
+    --line: #cfc7b4;
+    --moss: #3f5d44;
+    --moss-dark: #2c4130;
+    --rust: #a4552e;
+    --mono: "IBM Plex Mono", "SF Mono", Consolas, monospace;
+    --serif: "Iowan Old Style", "Georgia", serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    display: flex;
+    justify-content: center;
+    padding: 48px 20px 80px;
+  }
+  main { width: 100%; max-width: 620px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--moss);
+    margin-bottom: 6px;
+  }
+  h1 { font-size: 34px; font-weight: 500; margin: 0 0 6px; line-height: 1.15; }
+  .sub { color: #55604f; font-size: 15px; margin: 0 0 30px; max-width: 46ch; }
+
+  ol.steps {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--moss-dark);
+    background: #eae6d9;
+    padding: 18px 20px 18px 36px;
+    border-radius: 4px;
+    line-height: 1.7;
+    margin: 0 0 30px;
+  }
+  ol.steps code {
+    background: #fff;
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-size: 12px;
+  }
+
+  label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--moss-dark);
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .dropzone {
+    border: 1.5px dashed var(--line);
+    border-radius: 4px;
+    background: #fff;
+    padding: 28px;
+    text-align: center;
+    cursor: pointer;
+  }
+  .dropzone.drag { border-color: var(--moss); background: #eef2ea; }
+  .dropzone input { display: none; }
+  .dropzone .cta {
+    font-family: var(--mono);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--moss);
+  }
+  .dropzone .filename {
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: #666;
+  }
+
+  .status {
+    margin-top: 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 14px 16px;
+    border-radius: 3px;
+    display: none;
+  }
+  .status.show { display: block; }
+  .status.error   { background: #f4e1d8; color: var(--rust); border: 1px solid #e3b79e; }
+  .status.success { background: #e2ead9; color: var(--moss-dark); border: 1px solid #b9cdaa; }
+
+  .result { display: none; margin-top: 20px; border: 1.5px solid var(--line); border-radius: 4px; padding: 20px 22px; background: #fff; }
+  .result.show { display: block; }
+  .result .count { font-size: 26px; font-weight: 600; }
+  .result .count small { font-size: 13px; font-weight: 400; color: #666; margin-left: 8px; }
+  .result a.download {
+    display: inline-block;
+    margin-top: 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #fff;
+    background: var(--rust);
+    padding: 10px 18px;
+    border-radius: 3px;
+    text-decoration: none;
+  }
+  .result a.download:hover { background: #8a4425; }
+
+  footer {
+    margin-top: 56px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #9a9484;
+    border-top: 1px solid var(--line);
+    padding-top: 16px;
+  }
+  footer a { color: var(--moss); }
+</style>
+</head>
+<body>
+<main>
+  <div class="eyebrow">Northspace Imagery — field tools</div>
+  <h1>eBird Hotspots → GPX</h1>
+  <p class="sub">Convert an eBird hotspot CSV into a GPX waypoint file for Gaia GPS. Runs entirely in your browser — nothing is uploaded anywhere.</p>
+
+  <ol class="steps">
+    <li>Get your API key once from <a href="https://ebird.org/api/keygen" target="_blank">ebird.org/api/keygen</a>.</li>
+    <li>Paste this into your browser address bar, with your region code and key filled in:<br>
+      <code>https://api.ebird.org/v2/ref/hotspot/REGIONCODE?fmt=csv&amp;key=YOURKEY</code></li>
+    <li>Save the downloaded CSV, then drop it below.</li>
+  </ol>
+
+  <label for="file-input">CSV file</label>
+  <div class="dropzone" id="dropzone">
+    <input type="file" id="file-input" accept=".csv,text/csv" />
+    <div class="cta">Click to choose a file, or drag one here</div>
+    <div class="filename" id="filename"></div>
+  </div>
+
+  <div id="status" class="status"></div>
+
+  <div id="result" class="result">
+    <div class="count"><span id="wpt-count">0</span><small>waypoints</small></div>
+    <div id="file-label" style="font-family: var(--mono); font-size: 12px; color: #666; margin-top: 4px;"></div>
+    <a id="download-link" class="download" href="#" download>Download GPX</a>
+  </div>
+
+  <footer>
+    Data source: eBird API (Cornell Lab of Ornithology). This page does no network requests of its own —
+    the CSV is generated by you, directly from eBird, and processed locally.
+  </footer>
+</main>
+
+<script>
+(function () {
+  const dropzone = document.getElementById("dropzone");
+  const fileInput = document.getElementById("file-input");
+  const filenameEl = document.getElementById("filename");
+  const statusEl = document.getElementById("status");
+  const resultEl = document.getElementById("result");
+  const wptCountEl = document.getElementById("wpt-count");
+  const fileLabelEl = document.getElementById("file-label");
+  const downloadLink = document.getElementById("download-link");
+
+  function setStatus(message, kind) {
+    statusEl.textContent = message;
+    statusEl.className = "status show " + kind;
+  }
+  function clearStatus() { statusEl.className = "status"; }
+
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = "", inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else { inQuotes = false; }
+        } else field += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ",") { row.push(field); field = ""; }
+        else if (c === "\n" || c === "\r") {
+          if (c === "\r" && text[i + 1] === "\n") i++;
+          row.push(field); field = "";
+          if (row.length > 1 || row[0] !== "") rows.push(row);
+          row = [];
+        } else field += c;
+      }
+    }
+    if (field !== "" || row.length) { row.push(field); rows.push(row); }
+    return rows;
+  }
+
+  const COLUMNS = [
+    "loc_id", "country_code", "subnational1_code", "subnational2_code",
+    "latitude", "longitude", "locality", "latest_obs_date",
+    "num_species_all_time", "num_species_last_30"
+  ];
+
+  function escapeXml(s) {
+    return String(s).replace(/[<>&'"]/g, (c) => ({
+      "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '"': "&quot;"
+    }[c]));
+  }
+
+  function csvToGpx(csvText) {
+    const rows = parseCSV(csvText);
+    const waypoints = [];
+    for (const row of rows) {
+      if (!row[0] || !row[0].trim()) continue;
+      const rec = {};
+      COLUMNS.forEach((key, i) => { rec[key] = row[i] || ""; });
+      const lat = parseFloat(rec.latitude);
+      const lon = parseFloat(rec.longitude);
+      if (Number.isNaN(lat) || Number.isNaN(lon)) continue;
+      const name = rec.locality.trim() || rec.loc_id;
+      const descParts = [];
+      if (rec.num_species_all_time) descParts.push(rec.num_species_all_time + " species all-time");
+      if (rec.num_species_last_30) descParts.push(rec.num_species_last_30 + " species last 30 days");
+      if (rec.latest_obs_date) descParts.push("latest obs " + rec.latest_obs_date);
+      descParts.push("eBird ID " + rec.loc_id);
+      waypoints.push({ lat, lon, name, desc: descParts.join(" | ") });
+    }
+
+    let gpx = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    gpx += '<gpx version="1.1" creator="ebird-hotspot-converter" xmlns="http://www.topografix.com/GPX/1/1">\n';
+    for (const w of waypoints) {
+      gpx += `  <wpt lat="${w.lat.toFixed(7)}" lon="${w.lon.toFixed(7)}">\n`;
+      gpx += `    <name>${escapeXml(w.name)}</name>\n`;
+      gpx += `    <desc>${escapeXml(w.desc)}</desc>\n`;
+      gpx += `    <sym>Bird</sym>\n`;
+      gpx += `  </wpt>\n`;
+    }
+    gpx += "</gpx>\n";
+    return { gpx, count: waypoints.length };
+  }
+
+  function handleFile(file) {
+    if (!file) return;
+    filenameEl.textContent = file.name;
+    resultEl.className = "result";
+    clearStatus();
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const { gpx, count } = csvToGpx(reader.result);
+        if (count === 0) {
+          setStatus("No valid hotspot rows found in that file. Confirm it's an eBird hotspot CSV (fmt=csv), not something else.", "error");
+          return;
+        }
+        const blob = new Blob([gpx], { type: "application/gpx+xml" });
+        const url = URL.createObjectURL(blob);
+        const gpxName = file.name.replace(/\.csv$/i, "") + ".gpx";
+        downloadLink.href = url;
+        downloadLink.download = gpxName;
+        wptCountEl.textContent = count;
+        fileLabelEl.textContent = "From: " + file.name;
+        resultEl.className = "result show";
+      } catch (err) {
+        setStatus("Couldn't parse that file as CSV.", "error");
+      }
+    };
+    reader.onerror = () => setStatus("Couldn't read that file.", "error");
+    reader.readAsText(file);
+  }
+
+  dropzone.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", (e) => handleFile(e.target.files[0]));
+
+  ["dragenter", "dragover"].forEach((evt) =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add("drag"); })
+  );
+  ["dragleave", "drop"].forEach((evt) =>
+    dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove("drag"); })
+  );
+  dropzone.addEventListener("drop", (e) => handleFile(e.dataTransfer.files[0]));
+})();
+</script>
+</body>
+</html>
